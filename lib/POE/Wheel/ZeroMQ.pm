@@ -7,19 +7,19 @@ $VERSION = '1.000'; # NOTE - Should be #.### (three decimal places)
 
 use POE qw(Wheel);
 use base qw(POE::Wheel);
+use Symbol qw(gensym);
 
 use ZeroMQ qw(:all);
 use Carp qw( croak carp );
 use POSIX qw(EAGAIN);
 
-sub CONTEXT()			{ 0 }
-sub SOCKET()			{ 1 }
-sub HANDLE()			{ 2 }
-sub EVENT_INPUT()		{ 3 }
-sub EVENT_ERROR()		{ 4 }
-sub STATE_EVENTS()	{ 5 }
-sub BUFFER_OUT()		{ 6 } 
-sub UNIQUE_ID()		{ 7 }
+sub SOCKET()			{ 0 }
+sub HANDLE()			{ 1 }
+sub EVENT_INPUT()		{ 2 }
+sub EVENT_ERROR()		{ 3 }
+sub STATE_EVENTS()	{ 4 }
+sub BUFFER_OUT()		{ 5 } 
+sub UNIQUE_ID()		{ 6 }
 
 =head1 NAME
 
@@ -75,7 +75,13 @@ sub new {
 
 	my ($socket, $sockettype, $bind, $connect,
 		$inputevent, $errorevent,
-		$subscribe);
+		$subscribe, $ctx);
+
+	croak "Context parameter required"
+		unless defined $params{Context};
+
+	$ctx = delete $params{Context};
+
 	if(defined $params{Socket}) {
 		# Socket parameter always overrides any other
 		carp "Ignoring SocketType parameter, Socket overrides"
@@ -114,16 +120,16 @@ sub new {
 	# Now it is important that we dont let $ctx drop out of 
 	# scope, if that happens then the sockets will just stop
 	# working. 
-	my $ctx;
 	if(!defined $socket) {
-		# No socket defined, do we at least have a context?
-		$ctx = delete $params{Context} if(defined $params{Context});
-
-		# If not create one
-		$ctx = ZeroMQ::Context->new unless(defined $ctx);
-
 		# And the socket
 		$socket = $ctx->socket($sockettype);
+	}
+
+	# If we got subscription, try to subscribe. Only for ZMQ_SUB sockets,
+	# but again, the user should know what he does.
+	# This have to be done before connect()
+	if(defined $subscribe) {
+		$socket->setsockopt(ZMQ_SUBSCRIBE, $subscribe);
 	}
 
 	# Bind/Connect if requested 
@@ -133,13 +139,23 @@ sub new {
 	# Fetch the ZMQ_FD
 	my $fd = $socket->getsockopt(ZMQ_FD);
 	
-	# Wrap it in a IO::Handle to be able to select_read on it.
-	# This fd indicates any kind of zmq IO, so we dont need a 'write' handle.
-	my $handle = IO::Handle->new_from_fd($fd, 'r');
+	# To be able to use the FD with POE's select loop, we need a filehandle.
+	# We could get one with IO::Handle->new_from_fd, which would naturally wrap the 
+	# existing fd with a Perl Filehandle. The problem comes when the filehandle is closed.
+	# The new_from_fd call ultimately calls C<open $h, "<&=$fd">. What this does is 
+	# "Instead, it will just make something of an alias to the existing one using the fdopen(3S)
+	# library call"
+	# Now, that is not a problem as long as we're running, however when we are freeing the
+	# filehandle, it will automatically call close() on it. Closing a FD owned by zmq is
+	# unarguably not good (will crash badly when it tries to clean up internally).
+	#
+	# So. Instead make sure we just use a regular FD 'dup' instead. The difference is in 
+	# the '=' sign. Use a generic symbol for this too, no need for IO::Handle.
+	my $handle = gensym();
+	open($handle, "<&$fd") or croak("Failed to open: $!");
 
 	# Great; lets bless ourself
 	my $self = bless [
-		$ctx,									# CONTEXT
 		$socket,								# SOCKET
 		$handle,								# HANDLE
 		$inputevent,						# EVENT_INPUT
@@ -165,12 +181,6 @@ sub new {
 		sub { $self->check_event; }
 	);
 
-	# If we got subscription, try to subscribe. Only for ZMQ_SUB sockets,
-	# but again, the user should know what he does.
-	if(defined $subscribe) {
-		$socket->setsockopt(ZMQ_SUBSCRIBE, $subscribe);
-	}
-
 	# Anyhow, lets read!
 	$poe_kernel->select_read($handle, $self->[STATE_EVENTS]);
 
@@ -192,9 +202,15 @@ sub check_event {
 		# XXX: How would we handle RECVMORE stuff?
 		# For now, if we read we just feed it to input event.
 		if(($events & ZMQ_POLLIN) == ZMQ_POLLIN) {
-			# We got data to recv
-			my $msg = $socket->recv(ZMQ_NOBLOCK);
-			$poe_kernel->yield($self->[EVENT_INPUT], $msg);
+			# We got data to recv. We do recv until
+			# we RCVMORE says "nothing more", and then we 
+			# feed all those msgs to the registered input event
+			my @msgs;
+			do {
+				push @msgs, $socket->recv(ZMQ_NOBLOCK);
+			}while($socket->getsockopt(ZMQ_RCVMORE));
+
+			$poe_kernel->yield($self->[EVENT_INPUT], \@msgs);
 		}
 
 		# If we got a pollout event, and we got data left to write; write it.
@@ -222,7 +238,6 @@ sub write_one
 		if($errno == EAGAIN) {
 			# Push the msg back to the buffer, and try later.
 			unshift @{$self->[BUFFER_OUT]}, $m;
-			print "writing one failed with $errno, trying later\n";
 			return;
 		}
 
@@ -248,9 +263,21 @@ sub send
 	$self->write_one;
 }
 
-sub ctx
+sub close
 {
-	return $_[0]->[CONTEXT];
+	my $self = $_[0];
+	return unless defined $self->[HANDLE];
+
+	# Remove it from the select
+	$poe_kernel->select_read($self->[HANDLE]);
+
+	# and explicitly close handles & 
+	# remove references.
+	$self->[HANDLE]->close();
+	delete $self->[HANDLE];
+
+	$self->[SOCKET]->close();
+	delete $self->[SOCKET];
 }
 
 # Get the wheel's ID.
@@ -262,13 +289,9 @@ sub DESTROY {
 	my $self = shift;
 	# We need to deallocate some stuff.
 
-	$poe_kernel->select_read($self->[HANDLE]);
+	$self->close();
 	&POE::Wheel::free_wheel_id($self->[UNIQUE_ID]);
-	undef $self->[HANDLE];
-	
-	# XXX: Should we close() the socket?
 }
 
 
 1;
-

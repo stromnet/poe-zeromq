@@ -1,0 +1,29 @@
+Some notes on how I've tested this without installing zeromq on the full system
+
+export $DEST=$HOME/dev/zmq-test/inst
+mkdir -p $DEST
+
+# Building zeromq itself:
+tar zxvf zeromq-2.1.1.tar.gz
+cd zeromq-2.1.
+./configure
+make
+make install DESTDIR=$DEST
+
+# The zeromq perl extension
+tar zxvf perl-ZeroMQ-0.09.tar.gz
+cd ZeroMQ-0.09
+env ZMQ_H=$DEST/usr/local/include/zmq.h perl Makefile.PL INC="-I$DEST/usr/local/include -I./" LIBS="-L$DEST/usr/local/lib"
+make 
+make install DESTDIR=$DEST
+
+# When using the libs, I had to preload the zmq shared library aswell as specify
+# extra include paths. Probably avoided by properly installing it in the system. If not, then 
+# the problem lies in perl-ZeroMQ rather than this library (?).
+
+# Running some tests; on Mac:
+env DYLD_INSERT_LIBRARIES=$DEST/usr/local/lib/libzmq.dylib perl -I `find $DEST -name ZeroMQ.pm|xargs dirname` -w t/01-pubsub.t
+
+# On FreeBSD (and probably linux)
+env LD_PRELOAD=$DEST/usr/local/lib/libzmq.so perl -I `find $DEST -name ZeroMQ.pm|xargs dirname` -w t/01-pubsub.t
+

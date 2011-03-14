@@ -1,6 +1,6 @@
 Some notes on how I've tested this without installing zeromq on the full system
 
-export $DEST=$HOME/dev/zmq-test/inst
+export DEST=$HOME/dev/zmq-test/inst
 mkdir -p $DEST
 
 # Building zeromq itself:

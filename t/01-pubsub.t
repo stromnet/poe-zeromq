@@ -1,4 +1,3 @@
-use lib 'inst/usr/local/lib/perl5/site_perl/5.10.1/mach';
 use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
@@ -7,10 +6,8 @@ use strict;
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
 
-use Time::HiRes;
-use IO::Handle;
 use POE;
-use Test::More tests => 6;
+use Test::More tests => 5;
 
 # This test starts two sockets; one pub and one sub.
 # It sends 10 messages, every other on a subscribed subject,

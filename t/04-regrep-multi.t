@@ -1,5 +1,3 @@
-use lib 'inst/usr/local/lib/perl5/site_perl/5.10.1/mach';
-use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
 use strict;
@@ -7,8 +5,6 @@ use strict;
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
 
-use Time::HiRes;
-use IO::Handle;
 use POE;
 use Test::More tests => 10*8;
 

@@ -1,0 +1,10 @@
+Build.PL
+howtobuild.txt
+lib/POE/Wheel/ZeroMQ.pm
+MANIFEST			This list of files
+perf/local_lat.pl
+t/01-pubsub.t
+t/02-reqrep.t
+t/03-reqrep-lb.t
+t/04-regrep-multi.t
+test.pl

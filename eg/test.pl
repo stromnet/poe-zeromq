@@ -1,4 +1,4 @@
-use lib 'inst/usr/local/lib/perl5/site_perl/5.10.1/mach';
+#use lib 'inst/usr/local/lib/perl5/site_perl/5.10.1/mach';
 use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;

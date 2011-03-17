@@ -1,6 +1,7 @@
+use strict;
+use warnings;
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
-use strict;
 
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
@@ -47,9 +48,9 @@ POE::Session->create(
 				is($cnt, $_[HEAP]{cnt}, 'correct cnt');
 
 				# send response.
-				my $msg = "pong". $_[HEAP]{cnt};
-				print localtime()." Responding $msg\n";
-				$_[HEAP]{rep}->send(ZeroMQ::Message->new($msg));
+				my $resp_msg = "pong". $_[HEAP]{cnt};
+				print localtime()." Responding $resp_msg\n";
+				$_[HEAP]{rep}->send(ZeroMQ::Message->new($resp_msg));
 			},
 			got_response => sub {
 				my $msgs = $_[ARG0];

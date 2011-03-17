@@ -1,13 +1,14 @@
+use strict;
+use warnings;
 use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
-use strict;
 
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
 
 use POE;
-use Test::More tests => 5;
+use Test::More tests => 6;
 
 # This test starts two sockets; one pub and one sub.
 # It sends 10 messages, every other on a subscribed subject,

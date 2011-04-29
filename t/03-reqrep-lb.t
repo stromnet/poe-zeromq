@@ -1,6 +1,7 @@
+use strict;
+use warnings;
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
-use strict;
 
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
@@ -55,9 +56,9 @@ POE::Session->create(
 				is($cnt % 2, 0, 'correctly received by first socket');
 
 				# send response.
-				my $msg = "pong". $_[HEAP]{cnt};
-				print localtime()." rep1 send $msg\n";
-				$_[HEAP]{rep1}->send(ZeroMQ::Message->new($msg));
+				my $resp_msg = "pong". $_[HEAP]{cnt};
+				print localtime()." rep1 send $resp_msg\n";
+				$_[HEAP]{rep1}->send(ZeroMQ::Message->new($resp_msg));
 			},
 			got_input2 => sub {
 				my $msgs = $_[ARG0];
@@ -71,9 +72,9 @@ POE::Session->create(
 				is($cnt % 2, 1, 'correctly received by second socket');
 
 				# send response.
-				my $msg = "pong". $_[HEAP]{cnt};
-				print localtime()." rep2 send $msg\n";
-				$_[HEAP]{rep2}->send(ZeroMQ::Message->new($msg));
+				my $resp_msg = "pong". $_[HEAP]{cnt};
+				print localtime()." rep2 send $resp_msg\n";
+				$_[HEAP]{rep2}->send(ZeroMQ::Message->new($resp_msg));
 			},
 			got_response => sub {
 				my $msgs = $_[ARG0];

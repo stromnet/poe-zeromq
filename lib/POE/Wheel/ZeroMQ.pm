@@ -266,12 +266,15 @@ sub check_event {
 	# this is fully valid. An example seems to be when we get an event in a SUB socket
 	# NOT matching our subscription filter.
 	while((my $events = $socket->getsockopt(ZMQ_EVENTS)) != 0) {
-		# XXX: How would we handle RECVMORE stuff?
-		# For now, if we read we just feed it to input event.
 		if(($events & ZMQ_POLLIN) == ZMQ_POLLIN) {
 			# We got data to recv. We do recv until
 			# we RCVMORE says "nothing more", and then we 
 			# feed all those msgs to the registered input event
+			# XXX: If messages are very large, this will consume 
+			# lots of memory. The user might want to handle
+			# the messages one by one instead.
+			# Implement idea: a SingleReadEvent handler which only gets feed
+			# one msg at a time.
 			my @msgs;
 			do {
 				push @msgs, $socket->recv(ZMQ_NOBLOCK);
@@ -390,6 +393,9 @@ sub DESTROY {
 
 This is an early release, developed together with an early release of the 
 ZeroMQ perl library (0.09) and ZeroMQ 2.1.1.
+
+There is currently no support for the serializer functions in the ZeroMQ perl modules.
+
 It is to be considered experimental, and might contain problems or bugs.
 If you find any, please report them to the author!
 

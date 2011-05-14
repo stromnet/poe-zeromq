@@ -1,29 +1,42 @@
 Some notes on how I've tested this without installing zeromq on the full system
 
-export DEST=$HOME/dev/zmq-test/inst
+export DEST=$HOME/dev/inst
 mkdir -p $DEST
 
 # Building zeromq itself:
-tar zxvf zeromq-2.1.1.tar.gz
-cd zeromq-2.1.
-./configure
+tar zxvf zeromq-2.1.6.tar.gz
+cd zeromq-2.1.6
+./configure --prefix=$DEST
 make
-make install DESTDIR=$DEST
+make install
 
 # The zeromq perl extension
-tar zxvf perl-ZeroMQ-0.09.tar.gz
-cd ZeroMQ-0.09
-env ZMQ_H=$DEST/usr/local/include/zmq.h perl Makefile.PL INC="-I$DEST/usr/local/include -I./" LIBS="-L$DEST/usr/local/lib"
+tar zxvf perl-ZeroMQ-0.14.tar.gz
+cd ZeroMQ-0.14
+#env ZMQ_H=$DEST/usr/local/include/zmq.h perl Makefile.PL INC="-I$DEST/usr/local/include -I./" LIBS="-L$DEST/usr/local/lib"
+env PKG_CONFIG_PATH=$DEST/lib/pkgconfig perl Makefile.PL PREFIX="$DEST"
 make 
-make install DESTDIR=$DEST
+make install
+
 
 # When using the libs, I had to preload the zmq shared library aswell as specify
 # extra include paths. Probably avoided by properly installing it in the system. If not, then 
 # the problem lies in perl-ZeroMQ rather than this library (?).
 
 # Running some tests; on Mac:
-env DYLD_INSERT_LIBRARIES=$DEST/usr/local/lib/libzmq.dylib perl -I `find $DEST -name ZeroMQ.pm|xargs dirname` -w t/01-pubsub.t
+env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl -w t/01-pubsub.t
 
 # On FreeBSD (and probably linux)
-env LD_PRELOAD=$DEST/usr/local/lib/libzmq.so perl -I `find $DEST -name ZeroMQ.pm|xargs dirname` -w t/01-pubsub.t
+env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl -w t/01-pubsub.t
+
+
+# To build it under OS X:
+env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build
+env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build test
+env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build install --install_base $DEST
+
+
+# To then run some random app which utilizes both
+# Seems I had to include both perl5 and site_perl explicitly.. ZeroMQ and ZeroMQ-POE installs under differnt subdirs it seems
+env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5 -I $DEST/lib/perl5/site_perl -t test.pl
 

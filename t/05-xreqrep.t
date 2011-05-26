@@ -7,16 +7,16 @@ my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
 
 use POE;
-use Test::More tests => 10*4;
+use Test::More tests => 10*9;
 
-# This test starts two sockets; one req and one rep
+# This test starts two sockets; one xreq and one rep
 # It sends 10 messages, all should be received.
 POE::Session->create(
 		inline_states => {
 			_start => sub {
 				my $ctx = ZeroMQ::Context->new();
-				$_[HEAP]{req} = POE::Wheel::ZeroMQ->new(
-						SocketType => ZMQ_REQ,
+				$_[HEAP]{xreq} = POE::Wheel::ZeroMQ->new(
+						SocketType => ZMQ_XREQ,
 						SocketBind => "tcp://127.0.0.1:55559",
 						InputEvent => 'got_response',
 						Context => $ctx
@@ -41,21 +41,25 @@ POE::Session->create(
 				my $cnt = $_[HEAP]{cnt};
 				my $msg = "ping". $cnt ;
 				print localtime()." Sending $msg\n";
-
+				# Build a msg
 				my @env = (
+					ZeroMQ::Message->new('ID'.$cnt),
+					ZeroMQ::Message->new(''),
 					ZeroMQ::Message->new($msg)
 				);
-				
-				# Test both single-item send
 				if($cnt % 2 == 0) {
-					$_[HEAP]{req}->send(shift @env);
+					# Send manually for half
+					$_[HEAP]{xreq}->send(shift @env, ZMQ_SNDMORE);
+					$_[HEAP]{xreq}->send(shift @env, ZMQ_SNDMORE);
+					$_[HEAP]{xreq}->send(shift @env);
 				}else{
-					# And newstyle-send with the full array
-					$_[HEAP]{req}->send(\@env);
+					# And send newstyle array for other half
+					$_[HEAP]{xreq}->send(\@env);
 				}
 			},
 			got_input => sub {
 				my $msgs = $_[ARG0];
+				is(scalar @$msgs, 1, 'one msg part received');
 				my $msg = shift @$msgs;
 
 				print localtime()." Got ".($msg->data)."\n";
@@ -71,17 +75,26 @@ POE::Session->create(
 			},
 			got_response => sub {
 				my $msgs = $_[ARG0];
+				is(scalar @$msgs, 3, 'three msg parts received');
+				my $id= shift @$msgs;
+				my $null = shift @$msgs;
 				my $msg = shift @$msgs;
 
-				my $cnt = substr($msg->data, 4);
+				my $cnt = substr($id->data, 2);
+				is(substr($id->data,0,2), 'ID', 'correct ID');
+				is($cnt, $_[HEAP]{cnt}, 'correct cnt in ID');
+
+				is($null->data, '', 'null message is blank');
+
+				$cnt = substr($msg->data, 4);
 				is(substr($msg->data,0,4), 'pong', 'correct pong');
-				is($cnt, $_[HEAP]{cnt}, 'correct cnt');
+				is($cnt, $_[HEAP]{cnt}, 'correct cnt in MSG');
 
 				$cnt = $_[HEAP]{cnt}++;
 
 				if($cnt >= 9) {
 					# Break;
-					$_[HEAP]{req}->close();
+					$_[HEAP]{xreq}->close();
 					$_[HEAP]{rep}->close();
 					return;
 				}
@@ -94,4 +107,5 @@ POE::Session->create(
 	);
 
 POE::Kernel->run();
+
 

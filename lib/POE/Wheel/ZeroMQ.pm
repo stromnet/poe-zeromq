@@ -71,6 +71,8 @@ Compared to running against local_lat.cpp on the same laptop:
 
 So, performance-wise, much worse! But it works.
 
+For more examples, please see the tests.
+
 =head1 DESCRIPTION
 
 POE::Wheel::ZeroMQ is a simple wrapper around the ZeroMQ::Socket. It does not try
@@ -325,10 +327,14 @@ sub write_one
 
 =head2 send
 
-First argument is a ZeroMQ::Message to send.
+First argument is a single ZeroMQ::Message, or an array-ref with one or more
+ZeroMQ::Messages. The array method can be used to send a multi-part message.
+
 The second argument is any flags to forward on to the ZeroMQ::Socket
 send method. Currently the only flag which makes any sense would be
-the ZMQ_SNDMORE flag, if there are more message parts to come.
+the ZMQ_SNDMORE flag, if there are more message parts to come. However, if you use the
+array-ref method, the ZMQ_SNDMORE flag is set automatically.
+
 This method is non-blocking, and does not give any indication about success/failure.
 
 =cut
@@ -336,8 +342,23 @@ sub send
 {
 	my ($self, $msg, $flags) = @_;
 	$flags = 0 unless defined $flags;
-	# Push data to send to queue
-	push @{$self->[BUFFER_OUT]}, [$msg, $flags];
+
+	if(ref $msg eq 'ARRAY') {
+		# Set SNDMORE for all messages
+		$flags |= ZMQ_SNDMORE;
+		for(my $i = 0; $i < @$msg; $i++) {
+			# And remove SNDMORE for the last message
+			$flags &= ~ZMQ_SNDMORE if($i == @$msg-1);
+
+			# Push each individual msg
+			push @{$self->[BUFFER_OUT]}, [$msg->[$i], $flags];
+		}
+	}
+	else
+	{
+		# Push data to send to queue
+		push @{$self->[BUFFER_OUT]}, [$msg, $flags];
+	}
 
 	$self->write_one;
 }

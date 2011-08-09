@@ -8,7 +8,7 @@ my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
 
 use POE;
-use Test::More tests => 6;
+use Test::More tests => 12;
 
 # This test starts two sockets; one pub and one sub.
 # It sends 10 messages, every other on a subscribed subject,
@@ -27,6 +27,7 @@ POE::Session->create(
 						SocketType => ZMQ_SUB,
 						SocketConnect => "tcp://127.0.0.1:55559",
 						InputEvent => 'got_input',
+						InputEventContext => 'test socket',
 						Subscribe => 'ping',
 						Context => $ctx
 					);
@@ -41,7 +42,10 @@ POE::Session->create(
 			},
 			got_input => sub {
 				my $msgs = $_[ARG0];
+				my $ctx = $_[ARG1];
 				my $msg = shift @$msgs;
+
+				is($ctx, 'test socket');
 
 				print localtime()." Got ".($msg->data)."\n";
 

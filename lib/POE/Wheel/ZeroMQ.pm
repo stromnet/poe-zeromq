@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-$VERSION = '1.000'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.010'; # NOTE - Should be #.### (three decimal places)
 
 use POE qw(Wheel);
 use base qw(POE::Wheel);
@@ -16,10 +16,11 @@ use POSIX qw(EAGAIN);
 sub SOCKET()			{ 0 }
 sub HANDLE()			{ 1 }
 sub EVENT_INPUT()		{ 2 }
-sub EVENT_ERROR()		{ 3 }
-sub STATE_EVENTS()	{ 4 }
-sub BUFFER_OUT()		{ 5 } 
-sub UNIQUE_ID()		{ 6 }
+sub EVENT_INPUT_CTX(){ 3 }
+sub EVENT_ERROR()		{ 4 }
+sub STATE_EVENTS()	{ 5 }
+sub BUFFER_OUT()		{ 6 } 
+sub UNIQUE_ID()		{ 7 }
 
 =head1 NAME
 
@@ -43,12 +44,14 @@ replaces local_lat)
 					Context => $ctx,
 					SocketType => ZMQ_REP,
 					SocketBind => 'tcp://127.0.0.1:5555',
-					InputEvent => 'on_remote_data'
+					InputEvent => 'on_remote_data',
+					InputEventContext => 'main socket'
 				);
 			},
 			on_remote_data => sub {
 				my $msgs = $_[ARG0];
-				#print "Received ".(scalar @$msgs)." msgs\n";
+				my $ctx = $_[ARG1];
+				#print "Received ".(scalar @$msgs)." msgs on $ctx\n";
 				$_[HEAP]{wheel}->send($msgs->[0]);
 			},
 		},
@@ -132,6 +135,11 @@ case a large amount of memory would have to be allocated at once. If such
 funcitonality is desired one could pretty easily modify the library to take
 a flag to indicate "deliver on at a time". Not implemented now though.
 
+=item InputEventContext
+
+Optional free data which is passed as ARG1 to the input event.
+This could be used to associate the socket with some app-specific details.
+
 =back
 
 =cut
@@ -143,7 +151,7 @@ sub new {
 	croak "$type requires a working Kernel" unless defined $poe_kernel;
 
 	my ($socket, $sockettype, $bind, $connect,
-		$inputevent, $errorevent,
+		$inputevent, $inputeventctx, $errorevent,
 		$subscribe, $ctx);
 
 	$ctx = delete $params{Context};
@@ -173,6 +181,7 @@ sub new {
   		if(defined $params{SocketConnect}) ;
 
 	$inputevent = delete $params{InputEvent};
+	$inputeventctx = delete $params{InputEventContext};
 	$errorevent = delete $params{ErrorEvent};
 
 	$subscribe = delete $params{Subscribe};
@@ -228,6 +237,7 @@ sub new {
 		$socket,								# SOCKET
 		$handle,								# HANDLE
 		$inputevent,						# EVENT_INPUT
+		$inputeventctx,					# EVENT_INPUT_CTX
 		$errorevent,						# EVENT_ERROR
 
 		# Internal state name
@@ -239,9 +249,6 @@ sub new {
 		&POE::Wheel::allocate_wheel_id(), # UNIQUE_ID
 
 		], $type;
-
-	my $event_input  = \$self->[EVENT_INPUT];
-	my $event_error  = \$self->[EVENT_ERROR];
 
 	# Lets define our main event state. It will just call check_event
 	my $unique_id = $self->[UNIQUE_ID];
@@ -282,7 +289,7 @@ sub check_event {
 				push @msgs, $socket->recv(ZMQ_NOBLOCK);
 			}while($socket->getsockopt(ZMQ_RCVMORE));
 
-			$poe_kernel->yield($self->[EVENT_INPUT], \@msgs);
+			$poe_kernel->yield($self->[EVENT_INPUT], \@msgs, $self->[EVENT_INPUT_CTX]);
 		}
 
 		# If we got a pollout event, and we got data left to write; write it.

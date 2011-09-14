@@ -3,6 +3,7 @@ my $build = Module::Build->new
 (
     module_name => 'POE::Wheel::ZeroMQ',
     license     => 'perl',
+	 dist_author => 'Johan Ström <johan@stromnet.se>',
     requires    => {
         'ZeroMQ' => 0,
     }

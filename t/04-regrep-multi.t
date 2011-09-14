@@ -1,7 +1,9 @@
 use strict;
 use warnings;
+use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
+use Time::HiRes qw(sleep);
 
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
@@ -29,12 +31,15 @@ POE::Session->create(
 						Context => $ctx
 					);
 
+				sleep(0.5); # Makes sure rep1 connects ahead of rep2
 				$_[HEAP]{rep2} = POE::Wheel::ZeroMQ->new(
 						SocketType => ZMQ_REP,
 						SocketConnect => "tcp://127.0.0.1:55559",
 						InputEvent => 'got_input2',
 						Context => $ctx
 					);
+
+				sleep(0.5); # Makes sure rep2 is connected before we start sending
 
 				$_[HEAP]{cnt} = 0;
 				$_[HEAP]{ctx} = $ctx;

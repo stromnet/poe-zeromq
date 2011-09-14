@@ -1,5 +1,6 @@
 use strict;
 use warnings;
+use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
 

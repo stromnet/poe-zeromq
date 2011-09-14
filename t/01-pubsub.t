@@ -3,6 +3,7 @@ use warnings;
 use lib 'lib';
 use ZeroMQ qw(:all);
 use POE::Wheel::ZeroMQ;
+use Time::HiRes qw(sleep);
 
 my $version_string = ZeroMQ::version();
 print "Starting with ZMQ $version_string\n";
@@ -35,6 +36,7 @@ POE::Session->create(
 				$_[HEAP]{cnt} = 0;
 				$_[HEAP]{ctx} = $ctx;
 
+				sleep(0.5); # Wait for subscriber
 				$poe_kernel->yield('ping', 1);
 			},
 			_stop => sub {

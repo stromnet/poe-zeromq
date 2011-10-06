@@ -122,7 +122,12 @@ Same as SocketBind, but for connect().
 
 =item Subscribe
 
-A convenience function to setsockopt(ZMQ_SUBSCRIBE, ..). Will be called right be fore
+A convenience function to setsockopt(ZMQ_SUBSCRIBE, ..). Will be called right before
+any bind/conncet is performed (if SocketBind/Connect is specified).
+
+=item Identity
+
+A convenience function to setsockopt(ZMQ_IDENTITY, ..). Will be called right before
 any bind/conncet is performed (if SocketBind/Connect is specified).
 
 =item InputEvent
@@ -152,7 +157,7 @@ sub new {
 
 	my ($socket, $sockettype, $bind, $connect,
 		$inputevent, $inputeventctx, $errorevent,
-		$subscribe, $ctx);
+		$subscribe, $identity, $ctx);
 
 	$ctx = delete $params{Context};
 
@@ -185,6 +190,8 @@ sub new {
 	$errorevent = delete $params{ErrorEvent};
 
 	$subscribe = delete $params{Subscribe};
+	$identity = delete $params{Identity};
+
 
 	# Anything else is error
 	if (scalar keys %params) {
@@ -208,6 +215,10 @@ sub new {
 	# This have to be done before connect()
 	if(defined $subscribe) {
 		$socket->setsockopt(ZMQ_SUBSCRIBE, $subscribe);
+	}
+
+	if(defined $identity) {
+		$socket->setsockopt(ZMQ_IDENTITY, $identity);
 	}
 
 	# Bind/Connect if requested 

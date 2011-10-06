@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-$VERSION = '1.010'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.020'; # NOTE - Should be #.### (three decimal places)
 
 use POE qw(Wheel);
 use base qw(POE::Wheel);

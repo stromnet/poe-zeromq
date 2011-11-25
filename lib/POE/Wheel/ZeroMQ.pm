@@ -3,7 +3,7 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-$VERSION = '1.020'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.021'; # NOTE - Should be #.### (three decimal places)
 
 use POE qw(Wheel);
 use base qw(POE::Wheel);
@@ -15,12 +15,13 @@ use POSIX qw(EAGAIN);
 
 sub SOCKET()			{ 0 }
 sub HANDLE()			{ 1 }
-sub EVENT_INPUT()		{ 2 }
-sub EVENT_INPUT_CTX(){ 3 }
-sub EVENT_ERROR()		{ 4 }
+sub OWNER_SESS()		{ 2 }
+sub EVENT_INPUT()		{ 3 }
+sub EVENT_INPUT_CTX(){ 4 }
+sub EVENT_ERROR()		{ 5 }
 sub STATE_EVENTS()	{ 5 }
-sub BUFFER_OUT()		{ 6 } 
-sub UNIQUE_ID()		{ 7 }
+sub BUFFER_OUT()		{ 7 } 
+sub UNIQUE_ID()		{ 8 }
 
 =head1 NAME
 
@@ -132,9 +133,9 @@ any bind/conncet is performed (if SocketBind/Connect is specified).
 
 =item InputEvent
 
-This is called whenever a new message has been received. ARG0 will be an array
-reference containing all the messages in the "set" of messages as indicated 
-by the ZMQ_RCVMORE flag.
+This is called on the owner session whenever a new message has been received.
+ARG0 will be an array reference containing all the messages in the "set" of
+messages as indicated by the ZMQ_RCVMORE flag.
 This might be bad if you are planning to receive a lot of large messages, in which
 case a large amount of memory would have to be allocated at once. If such 
 funcitonality is desired one could pretty easily modify the library to take
@@ -247,6 +248,8 @@ sub new {
 	my $self = bless [
 		$socket,								# SOCKET
 		$handle,								# HANDLE
+		$poe_kernel->
+			get_active_session()->ID,	# OWNER_SESS
 		$inputevent,						# EVENT_INPUT
 		$inputeventctx,					# EVENT_INPUT_CTX
 		$errorevent,						# EVENT_ERROR
@@ -300,7 +303,11 @@ sub check_event {
 				push @msgs, $socket->recv(ZMQ_NOBLOCK);
 			}while($socket->getsockopt(ZMQ_RCVMORE));
 
-			$poe_kernel->yield($self->[EVENT_INPUT], \@msgs, $self->[EVENT_INPUT_CTX]);
+			# Make sure we really post to the right session. On send() we will
+			# call check_event, and if send() is called from a session other than the owner,
+			# we would dispatch this message to the wrong session unless we're speceific.
+			$poe_kernel->post($self->[OWNER_SESS], $self->[EVENT_INPUT],
+				\@msgs, $self->[EVENT_INPUT_CTX]);
 		}
 
 		# If we got a pollout event, and we got data left to write; write it.

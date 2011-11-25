@@ -23,17 +23,23 @@ make install
 # extra include paths. Probably avoided by properly installing it in the system. If not, then 
 # the problem lies in perl-ZeroMQ rather than this library (?).
 
-# Running some tests; on Mac:
-env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl -w t/01-pubsub.t
-
-# On FreeBSD (and probably linux)
-env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl -w t/01-pubsub.t
-
 
 # To build it under OS X:
 env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build
 env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build test
 env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build install --install_base $DEST
+
+# To build under my FreeBSD
+env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl/5.10.1/mach Build
+env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl/5.10.1/mach Build test
+env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl/5.10.1/mach Build install --install_base $DEST
+
+# To run individual tests
+# Running some tests; on Mac:
+env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl -w t/01-pubsub.t
+
+# On FreeBSD (and probably linux)
+env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl -w t/01-pubsub.t
 
 
 # To then run some random app which utilizes both

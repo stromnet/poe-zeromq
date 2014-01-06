@@ -9,6 +9,11 @@ use Time::HiRes qw(sleep);
 my $version_string = ZMQ::call( "zmq_version" );
 print "Starting with ZMQ $version_string\n";
 
+if($version_string =~ /^3./){
+	use Test::More skip_all => "No durable sockets in ZMQ3";
+	exit(0);
+}
+
 use POE;
 use Test::More tests => 22;
 

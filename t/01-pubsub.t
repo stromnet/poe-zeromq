@@ -1,11 +1,12 @@
 use strict;
 use warnings;
 use lib 'lib';
-use ZeroMQ qw(:all);
+use ZMQ qw(:all);
+use ZMQ::Constants qw(:all) ;
 use POE::Wheel::ZeroMQ;
 use Time::HiRes qw(sleep);
 
-my $version_string = ZeroMQ::version();
+my $version_string = ZMQ::call( "zmq_version" );
 print "Starting with ZMQ $version_string\n";
 
 use POE;
@@ -17,7 +18,7 @@ use Test::More tests => 12;
 POE::Session->create(
 		inline_states => {
 			_start => sub {
-				my $ctx = ZeroMQ::Context->new();
+				my $ctx = ZMQ::Context->new();
 				$_[HEAP]{p} = POE::Wheel::ZeroMQ->new(
 						SocketType => ZMQ_PUB,
 						SocketBind => "tcp://127.0.0.1:55559",
@@ -69,7 +70,7 @@ POE::Session->create(
 
 				print localtime()." Sending $msg\n";
 
-				$_[HEAP]{p}->send(ZeroMQ::Message->new($msg));
+				$_[HEAP]{p}->send(ZMQ::Message->new($msg));
 				$poe_kernel->delay('ping', 0.1);
 			}
 		}

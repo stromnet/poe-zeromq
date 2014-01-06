@@ -3,26 +3,29 @@ Some notes on how I've tested this without installing zeromq on the full system
 export DEST=$HOME/dev/inst
 mkdir -p $DEST
 
-# Building zeromq itself:
-tar zxvf zeromq-2.1.6.tar.gz
-cd zeromq-2.1.6
+# Building zeromq itself (or install globally, i.e. FreeBSD ports in net/libzmq3):
+tar zxf zeromq-3.2.4.tar.gz
+cd zeromq-3.2.4
 ./configure --prefix=$DEST
 make
 make install
 
-# The zeromq perl extension
-tar zxvf perl-ZeroMQ-0.14.tar.gz
-cd ZeroMQ-0.14
-#env ZMQ_H=$DEST/usr/local/include/zmq.h perl Makefile.PL INC="-I$DEST/usr/local/include -I./" LIBS="-L$DEST/usr/local/lib"
-env PKG_CONFIG_PATH=$DEST/lib/pkgconfig perl Makefile.PL PREFIX="$DEST"
-make 
-make install
+# We also need perl package ZMQ, ZMQ::Constants and ZMQ-LibZMQ3
+tar zxf ZMQ-1.05.tar.gz
+tar zxf ZMQ-Constants-1.03.tar.gz
+tar zxf ZMQ-LibZMQ3-1.15.tar.gz
 
+cd ZMQ-1.05
+# This one only if nonglobal zeromq install:
+#env PKG_CONFIG_PATH=$DEST/lib/pkgconfig perl Makefile.PL PREFIX="$DEST"
+# Else regular:
+perl Makefile.PL PREFIX="$DEST"
+make
+make install
+# Repeat for other two packages
 
 # When using the libs, I had to preload the zmq shared library aswell as specify
-# extra include paths. Probably avoided by properly installing it in the system. If not, then 
-# the problem lies in perl-ZeroMQ rather than this library (?).
-
+# extra include paths. This is avoided by installing ZeroMQ globally
 
 # To build it under OS X:
 env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build
@@ -30,9 +33,10 @@ env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_pe
 env DYLD_INSERT_LIBRARIES=$DEST/lib/libzmq.dylib perl -I $DEST/lib/perl5/site_perl Build install --install_base $DEST
 
 # To build under my FreeBSD
-env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl/5.10.1/mach Build
-env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl/5.10.1/mach Build test
-env LD_PRELOAD=$DEST/lib/libzmq.so perl -I $DEST/lib/perl5/site_perl/5.10.1/mach Build install --install_base $DEST
+#(Prefix with env LD_PRELOAD=$DEST/lib/libzmq.so if not globally installed)
+perl -I $DEST/lib/perl5/site_perl/5.16/mach Build
+perl -I $DEST/lib/perl5/site_perl/5.16/mach -I $DEST/lib/perl5/site_perl/5.16 Build test
+perl -I $DEST/lib/perl5/site_perl/5.16/mach Build install --install_base $DEST
 
 # To run individual tests
 # Running some tests; on Mac:

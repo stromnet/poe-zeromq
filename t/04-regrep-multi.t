@@ -1,11 +1,12 @@
 use strict;
 use warnings;
 use lib 'lib';
-use ZeroMQ qw(:all);
+use ZMQ qw(:all);
+use ZMQ::Constants qw(:all) ;
 use POE::Wheel::ZeroMQ;
 use Time::HiRes qw(sleep);
 
-my $version_string = ZeroMQ::version();
+my $version_string = ZMQ::call( "zmq_version" );
 print "Starting with ZMQ $version_string\n";
 
 use POE;
@@ -16,7 +17,7 @@ use Test::More tests => 10*8;
 POE::Session->create(
 		inline_states => {
 			_start => sub {
-				my $ctx = ZeroMQ::Context->new();
+				my $ctx = ZMQ::Context->new();
 				$_[HEAP]{req} = POE::Wheel::ZeroMQ->new(
 						SocketType => ZMQ_REQ,
 						SocketBind => "tcp://127.0.0.1:55559",
@@ -66,7 +67,7 @@ POE::Session->create(
 				# send response.
 				my $resp_msg = "pong". $_[HEAP]{cnt};
 				print localtime()." rep1 send $resp_msg\n";
-				$_[HEAP]{rep1}->send(ZeroMQ::Message->new($resp_msg));
+				$_[HEAP]{rep1}->send(ZMQ::Message->new($resp_msg));
 			},
 			got_input2 => sub {
 				my $msgs = $_[ARG0];
@@ -85,7 +86,7 @@ POE::Session->create(
 				# send response.
 				my $resp_msg = "pong". $_[HEAP]{cnt};
 				print localtime()." rep2 send '$resp_msg'\n";
-				$_[HEAP]{rep2}->send(ZeroMQ::Message->new($resp_msg));
+				$_[HEAP]{rep2}->send(ZMQ::Message->new($resp_msg));
 			},
 			got_response => sub {
 				my $msgs = $_[ARG0];
@@ -115,8 +116,8 @@ POE::Session->create(
 			ping => sub {
 				my $msg = "ping". $_[HEAP]{cnt} ;
 				print localtime()." req  send $msg with multimsg\n";
-				$_[HEAP]{req}->send(ZeroMQ::Message->new($msg), ZMQ_SNDMORE);
-				$_[HEAP]{req}->send(ZeroMQ::Message->new("second $msg"));
+				$_[HEAP]{req}->send(ZMQ::Message->new($msg), ZMQ_SNDMORE);
+				$_[HEAP]{req}->send(ZMQ::Message->new("second $msg"));
 			}
 		}
 	);

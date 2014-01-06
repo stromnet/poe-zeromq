@@ -1,10 +1,11 @@
 use strict;
 use warnings;
 use lib 'lib';
-use ZeroMQ qw(:all);
+use ZMQ qw(:all);
+use ZMQ::Constants qw(:all) ;
 use POE::Wheel::ZeroMQ;
 
-my $version_string = ZeroMQ::version();
+my $version_string = ZMQ::call( "zmq_version" );
 print "Starting with ZMQ $version_string\n";
 
 use POE;
@@ -15,7 +16,7 @@ use Test::More tests => 10*4;
 POE::Session->create(
 		inline_states => {
 			_start => sub {
-				my $ctx = ZeroMQ::Context->new();
+				my $ctx = ZMQ::Context->new();
 				$_[HEAP]{req} = POE::Wheel::ZeroMQ->new(
 						SocketType => ZMQ_REQ,
 						SocketBind => "tcp://127.0.0.1:55559",
@@ -44,7 +45,7 @@ POE::Session->create(
 				print localtime()." Sending $msg\n";
 
 				my @env = (
-					ZeroMQ::Message->new($msg)
+					ZMQ::Message->new($msg)
 				);
 				
 				# Test both single-item send
@@ -68,7 +69,7 @@ POE::Session->create(
 				# send response.
 				my $resp_msg = "pong". $_[HEAP]{cnt};
 				print localtime()." Responding $resp_msg\n";
-				$_[HEAP]{rep}->send(ZeroMQ::Message->new($resp_msg));
+				$_[HEAP]{rep}->send(ZMQ::Message->new($resp_msg));
 			},
 			got_response => sub {
 				my $msgs = $_[ARG0];

@@ -3,13 +3,14 @@ use strict;
 use warnings;
 
 use vars qw($VERSION);
-$VERSION = '1.021'; # NOTE - Should be #.### (three decimal places)
+$VERSION = '1.100'; # NOTE - Should be #.### (three decimal places)
 
 use POE qw(Wheel);
 use base qw(POE::Wheel);
 use Symbol qw(gensym);
 
-use ZeroMQ qw(:all) ;
+use ZMQ qw(:all) ;
+use ZMQ::Constants qw(:all) ;
 use Carp qw( croak carp );
 use POSIX qw(EAGAIN);
 
@@ -25,22 +26,23 @@ sub UNIQUE_ID()		{ 8 }
 
 =head1 NAME
 
-POE::Wheel::ZeroMQ - POE Wheel to use non-blocking ZeroMQ sockets in POE.
+POE::Wheel::ZeroMQ - POE Wheel to use non-blocking ZMQ sockets in POE.
 
 =head1 SYNOPSIS
 	
 This implements a 'echo-server' POE app, suitable for running
-together with ZeroMQ distributions perf/remote_lat tool (ie, this
+together with ZMQ distributions perf/remote_lat tool (ie, this
 replaces local_lat)
 
-	use ZeroMQ qw(:all);
+	use ZMQ qw(:all);
+	use ZMQ::Constants qw(:all);
 	use POE::Wheel::ZeroMQ;
 	use POE;
 
 	POE::Session->create(
 		inline_states => {
 			_start => sub {
-				my $ctx = ZeroMQ::Context->new();
+				my $ctx = ZMQ::Context->new();
 				$_[HEAP]{wheel} = POE::Wheel::ZeroMQ->new(
 					Context => $ctx,
 					SocketType => ZMQ_REP,
@@ -79,10 +81,12 @@ For more examples, please see the tests.
 
 =head1 DESCRIPTION
 
-POE::Wheel::ZeroMQ is a simple wrapper around the ZeroMQ::Socket. It does not try
-to be very smart, it just allows using the ZeroMQ::Socket's async.
+POE::Wheel::ZeroMQ is a simple wrapper around the ZMQ::Socket. It does not try
+to be very smart, it just allows using the ZMQ::Socket's async.
 This should be seen as an alterative to the AnyEvent::ZeroMQ library which
 is similar, but adds additional dependency on AnyEvent and Moose. 
+
+Note: currently we only work with ZMQ::LibZMQ3, not 2 (see caveats).
 
 =head1 METHODS
 
@@ -97,7 +101,7 @@ socket on the fly. Connect and bind operations can be done aswell.
 
 =item Socket
 
-If you already have a ZeroMQ::Socket ready to use, you can give a reference to it
+If you already have a ZMQ::Socket ready to use, you can give a reference to it
 through this parameter.
 
 =item SocketType
@@ -300,7 +304,7 @@ sub check_event {
 			# one msg at a time.
 			my @msgs;
 			do {
-				push @msgs, $socket->recv(ZMQ_NOBLOCK);
+				push @msgs, $socket->recvmsg(ZMQ_NOBLOCK);
 			}while($socket->getsockopt(ZMQ_RCVMORE));
 
 			# Make sure we really post to the right session. On send() we will
@@ -330,7 +334,7 @@ sub write_one
 	my $m = shift @{$self->[BUFFER_OUT]};
 	my ($msg, $flags) = @$m;
 
-	if($self->[SOCKET]->send($msg, ZMQ_NOBLOCK | $flags) == -1) {
+	if($self->[SOCKET]->sendmsg($msg, ZMQ_NOBLOCK | $flags) == -1) {
 		my $errno = $!;
 		if($errno == EAGAIN) {
 			# Push the msg back to the buffer, and try later.
@@ -352,10 +356,10 @@ sub write_one
 
 =head2 send
 
-First argument is a single ZeroMQ::Message, or an array-ref with one or more
-ZeroMQ::Messages. The array method can be used to send a multi-part message.
+First argument is a single ZMQ::Message, or an array-ref with one or more
+ZMQ::Messages. The array method can be used to send a multi-part message.
 
-The second argument is any flags to forward on to the ZeroMQ::Socket
+The second argument is any flags to forward on to the ZMQ::Socket
 send method. Currently the only flag which makes any sense would be
 the ZMQ_SNDMORE flag, if there are more message parts to come. However, if you use the
 array-ref method, the ZMQ_SNDMORE flag is set automatically.
@@ -437,12 +441,12 @@ sub DESTROY {
 
 =head1 CAVEATS
 
-This is an early release, developed together with an early release of the 
-ZeroMQ perl library (0.09) and ZeroMQ 2.1.1.
+There is only support for ZeroMQ 3, but this could easilly be fixed by not using sendmsg/recvmsg
+which are only available in ZMQ::LibZMQ3 (see notes in that library).
 
-There is currently no support for the serializer functions in the ZeroMQ perl modules.
-
-It is to be considered experimental, and might contain problems or bugs.
+The previous version of this library has been used for some small, low-traffic systems for
+a few years now, without any problems. The updated version should probably work equally well.
+Still, it is to be considered experimental, and might contain problems or bugs.
 If you find any, please report them to the author!
 
 =head1 AUTHOR
@@ -451,7 +455,7 @@ Johan Strom "<johan@stromnet.se>"
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (C) 2011 by Johan Strom
+Copyright (C) 2011-2014 by Johan Strom
 
 This library is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.

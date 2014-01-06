@@ -1,10 +1,11 @@
 use lib 'lib';
-use ZeroMQ qw(:all);
+use ZMQ qw(:all);
+use ZMQ::Constants qw(:all);
 use POE::Wheel::ZeroMQ;
 use strict;
 use warnings;
 
-my $version_string = ZeroMQ::version();
+my $version_string = ZMQ::call( "zmq_version" );
 print "Starting with ZMQ $version_string\n";
 
 use POE;
@@ -12,7 +13,7 @@ use POE;
 POE::Session->create(
 	inline_states => {
 		_start => sub {
-			my $ctx = ZeroMQ::Context->new();
+			my $ctx = ZMQ::Context->new();
 			$_[HEAP]{ctx} = $ctx;
 			$_[HEAP]{wheel} = POE::Wheel::ZeroMQ->new(
 				Context => $ctx,
